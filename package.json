@@ -1,5 +1,5 @@
 {
-  "name": "tipify",
+  "name": "@kirakishin/tipify",
   "version": "1.2.6",
   "description": "",
   "main": "dist/tipify.bundle.js",
@@ -12,14 +12,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/henry781/tipify.git"
+    "url": "git+https://github.com/kirakishin/tipify.git"
   },
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/henry781/tipify/issues"
+    "url": "https://github.com/kirakishin/tipify/issues"
   },
-  "homepage": "https://github.com/henry781/tipify#readme",
+  "homepage": "https://github.com/kirakishin/tipify#readme",
   "dependencies": {
     "typescript": "2.9.2"
   },
