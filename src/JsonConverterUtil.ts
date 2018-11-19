@@ -47,8 +47,13 @@ export class JsonConverterUtil {
             throw new JsonConverterError(errorMessage);
         }
 
-        if (Array.isArray(obj) !== Array.isArray(type)) {
+        if (Array.isArray(type) && !Array.isArray(obj)) {
             const errorMessage = '(E03) Expected type is an array, but given obj is not';
+            throw new JsonConverterError(errorMessage);
+        }
+
+        if (!Array.isArray(type) && Array.isArray(obj)) {
+            const errorMessage = '(E03) Given object is an array, but expected type is not';
             throw new JsonConverterError(errorMessage);
         }
     }
