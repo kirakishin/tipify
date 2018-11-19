@@ -2,8 +2,11 @@ const path = require('path');
 const DtsBundleWebpack = require('dts-bundle-webpack');
 
 module.exports = {
+    // optimization: {
+    //     minimize: false
+    // },
     entry: './src/api.ts',
-    target: 'node',
+    target: 'web',
     devtool: 'source-map',
     stats: 'verbose',
     module: {
