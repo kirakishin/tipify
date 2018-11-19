@@ -1,5 +1,6 @@
 import {TypeMapping} from "./TypeMapping";
 import {PropertyMapping} from "./PropertyMapping";
+import {JsonValidator} from './JsonValidators';
 
 export class JsonConverterMapper {
 
@@ -60,6 +61,31 @@ export class JsonConverterMapper {
 
             current = current.parent;
         } while (current);
+    }
+
+    /**
+     * get default validators described in `jsonObject` options.
+     * It concat all validators from parent or far away
+     * @param {TypeMapping} typeMapping
+     * @returns {JsonValidator[]}
+     */
+    public static getDefaultValidators(typeMapping: TypeMapping): JsonValidator[] {
+
+        let defaultValidators: JsonValidator[] = [];
+
+        let current = typeMapping;
+
+        do {
+
+            if (current.options && current.options.defaultValidators && current.options.defaultValidators.length) {
+                const newOnes = current.options.defaultValidators.filter(v => !defaultValidators.some(dv => dv === v));
+                defaultValidators = defaultValidators.concat(newOnes)
+            }
+
+            current = current.parent;
+        } while (current);
+
+        return defaultValidators;
     }
 
     /**
