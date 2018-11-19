@@ -23,14 +23,15 @@ module.exports = {
     },
     output: {
         filename: 'tipify.bundle.js',
-        library: 'tipify',
+        library: '@kirakishin/tipify',
         path: path.resolve(__dirname, 'dist'),
         libraryTarget: 'umd',
         umdNamedDefine: true
     },
     plugins: [
         new DtsBundleWebpack({
-            name: 'tipify',
+            name: '@kirakishin/tipify',
+            out: 'tipify.d.ts',
             main: 'dist/api.d.ts',
             baseDir: 'dist',
             verbose: false,
