@@ -22,13 +22,6 @@ export class JsonConverterDeserializer {
 
     public processDeserialize<T>(obj: any, type: any, context?: DeserializeContext): T {
 
-        // when obj is null or undefined, return null or undefined
-        if (JsonConverterUtil.isNullOrUndefined(obj)) {
-            return obj;
-        }
-
-        JsonConverterUtil.checkConsistency(obj, type);
-
         // when custom converter is provided, use custom provider
         if (type.prototype instanceof JsonCustomConverter) {
             const converterInstance = JsonCustomConverters.getConverterInstance(type);
@@ -43,8 +36,15 @@ export class JsonConverterDeserializer {
             });
         }
 
+        // when obj is null or undefined, return null or undefined
+        if (JsonConverterUtil.isNullOrUndefined(obj)) {
+            return obj;
+        }
+
+        JsonConverterUtil.checkConsistency(obj, type);
+
         // when an enum is provided
-        else if (type instanceof EnumOptions) {
+        if (type instanceof EnumOptions) {
             return this.processDeserializeEnum(obj, type);
         }
 
