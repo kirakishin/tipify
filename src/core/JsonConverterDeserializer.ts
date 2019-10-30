@@ -6,13 +6,14 @@ import {JsonCustomConverter} from '../converter/JsonCustomConverter';
 import {JsonConverterMapper} from '../mapping/JsonConverterMapper';
 import {Any} from '../type/Any';
 import {DeserializeContext} from './DeserializeContext';
+import {DeserializeLevelContext} from "./DeserializeLevelContext";
 
 export class JsonConverterDeserializer {
 
 
-    public deserialize<T>(obj: any, type: any, context?: DeserializeContext): T {
+    public deserialize<T>(obj: any, type: any, context?: DeserializeContext, levelContext?: DeserializeLevelContext): T {
         try {
-            return this.processDeserialize<T>(obj, type, context);
+            return this.processDeserialize<T>(obj, type, context, levelContext);
         } catch (err) {
             const errorMessage = '(E40) cannot deserialize :\n'
                 + JSON.stringify(obj, null, 2);
@@ -20,7 +21,7 @@ export class JsonConverterDeserializer {
         }
     }
 
-    public processDeserialize<T>(obj: any, type: any, context?: DeserializeContext): T {
+    public processDeserialize<T>(obj: any, type: any, context?: DeserializeContext, levelContext?: DeserializeLevelContext): T {
 
         // when custom converter is provided, use custom provider
         if (type.prototype instanceof JsonCustomConverter) {
@@ -33,7 +34,7 @@ export class JsonConverterDeserializer {
             }
             return converterInstance.deserialize(obj, {
                 ...context
-            });
+            }, levelContext);
         }
 
         // when obj is null or undefined, return null or undefined
@@ -63,11 +64,11 @@ export class JsonConverterDeserializer {
             return <any>this.processDeserializeArray(obj, _type, {
                 ...context,
                 parent: obj
-            });
+            }, levelContext);
         }
 
         if (obj === Object(obj)) {
-            return this.processDeserializeObject<T>(obj, type, context);
+            return this.processDeserializeObject<T>(obj, type, context, levelContext);
         }
 
         return obj;
@@ -78,15 +79,20 @@ export class JsonConverterDeserializer {
      * @param json
      * @param type
      * @param context
+     * @param levelContext
      */
-    public processDeserializeArray<T>(json: any[], type: any, context?: DeserializeContext): T[] {
+    public processDeserializeArray<T>(json: any[], type: any, context?: DeserializeContext, levelContext?: DeserializeLevelContext): T[] {
         const instance: T[] = [];
 
         json.forEach((entry, index) => {
             try {
-                instance.push(<T>this.processDeserialize(entry, type, context));
+                instance.push(<T>this.processDeserialize(entry, type, context, levelContext));
             } catch (err) {
-                const errorMessage = `(E30) error deserializing index <${index}>, type <${type.name}>`;
+                const errorMessage = `(E30) error deserializing index <${index}>, type <${type.name}>`
+                    + (context ? ` context groups: ${JSON.stringify(context.groups)}` : '')
+                    + (levelContext ? ` levelContext groups: ${JSON.stringify(levelContext.groups)}` : '')
+                    + '\n'
+                    + JSON.stringify(entry, null, 2);
                 throw new JsonConverterError(errorMessage, err);
             }
         });
@@ -118,8 +124,9 @@ export class JsonConverterDeserializer {
      * @param obj
      * @param type
      * @param context
+     * @param levelContext
      */
-    public processDeserializeObject<T>(obj: any, type: any, context?: DeserializeContext): T {
+    public processDeserializeObject<T>(obj: any, type: any, context?: DeserializeContext, levelContext?: DeserializeLevelContext): T {
 
         const typeMapping = JsonConverterMapper.getMappingForType(type);
         if (!typeMapping) {
@@ -142,7 +149,7 @@ export class JsonConverterDeserializer {
                 throw new JsonConverterError(errorMessage);
             }
 
-            return this.processDeserializeObject(obj, subType.type, context);
+            return this.processDeserializeObject(obj, subType.type, context, levelContext);
         }
 
         // new instance of type
@@ -151,15 +158,50 @@ export class JsonConverterDeserializer {
         // deserialize each property
         const properties = JsonConverterMapper.getAllPropertiesForTypeMapping(typeMapping);
         const defaultValidators = JsonConverterMapper.getDefaultValidators(typeMapping);
+        const defaultGroups = JsonConverterMapper.getDefaultGroups(typeMapping);
+        const defaultDeserializationGroups = JsonConverterMapper.getDefaultDeserializationGroups(typeMapping);
+
 
         properties.forEach(property => {
+            let groups: string[] | undefined = property.groups ? property.groups : defaultGroups;
+            let newLevelContext: DeserializeLevelContext = {};
+            let computedContextGroups: string[] | undefined;
+            // if the current level context has a groups defined, so apply it, instead of other
+            if (levelContext && levelContext.groups) {
+                computedContextGroups = levelContext.groups;
+            } else if (context && context.groups) {
+                computedContextGroups = context.groups;
+            }
+            if (property.subgroups && property.subgroups.length) {
+                // check if there is any defined subgroups with a null condition
+                const noGroupCondition = property.subgroups.find(sg => sg.conditions === null);
+                // in case of a null condition detected and no groups on this property, apply the specified groups for the nested entity
+                if ((!context || !context.groups) && noGroupCondition) {
+                    newLevelContext.groups = noGroupCondition.groups;
+                } else if (context && context.groups) {
+                    // in other case, find and apply the correct groups for the nested entity
+                    const subGroupToApply = property.subgroups.find(sg => sg.conditions && sg.conditions.some(c => context.groups.some(gg => gg === c)));
+                    if (subGroupToApply) {
+                        newLevelContext.groups = subGroupToApply.groups;
+                    }
+                }
+            }
             try {
                 const validators = property.validators ? property.validators : defaultValidators;
-                JsonConverterUtil.validate(obj, property.serializedName, validators);
-                instance[property.name] = this.deserialize(obj[property.serializedName], property.type, {
-                    ...context,
-                    parent: obj
-                });
+                JsonConverterUtil.validate(obj, property.serializedName, validators, groups, context, levelContext, defaultDeserializationGroups);
+                // treat the property if the declared groups matches at least one of the context.
+                // if there is no context or groups to manage, treat it
+                if (
+                    !computedContextGroups || computedContextGroups.length === 0 ||
+                    !groups || groups.length === 0 || groups.some((g) => computedContextGroups.some((cg) => g === cg))
+                ) {
+                    instance[property.name] = this.deserialize(obj[property.serializedName], property.type, {
+                        ...context,
+                        parent: obj
+                    }, newLevelContext);
+                } else {
+                    instance[property.name] = `${property.serializedName} no exists computedContextGroups=${JSON.stringify(computedContextGroups)}, groups=${groups}, `;
+                }
             } catch (err) {
                 const errorMessage = `(E32) error deserializing property <${property.name}>, type <${property.type.name}>`;
                 throw new JsonConverterError(errorMessage, err);

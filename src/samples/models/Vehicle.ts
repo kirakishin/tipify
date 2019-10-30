@@ -9,13 +9,13 @@ import {JsonValidators} from "../../mapping/JsonValidators";
 @jsonObject({discriminatorProperty: 'type'})
 export abstract class Vehicle {
 
-    @jsonProperty('type', String, [JsonValidators.required])
+    @jsonProperty('type', String, {validators: [JsonValidators.required]})
     public _type: string;
 
-    @jsonProperty('id', Number, [JsonValidators.required])
+    @jsonProperty('id', Number, {validators: [JsonValidators.required]})
     public _id: number;
 
-    @jsonProperty('name', String, [JsonValidators.required])
+    @jsonProperty('name', String, {validators:[JsonValidators.required]})
     public _name: string;
 
     @jsonProperty('passengers', [Passenger])

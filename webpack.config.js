@@ -5,6 +5,7 @@ module.exports = {
     // optimization: {
     //     minimize: false
     // },
+    mode: 'production',
     entry: './src/api.ts',
     target: 'web',
     devtool: 'source-map',

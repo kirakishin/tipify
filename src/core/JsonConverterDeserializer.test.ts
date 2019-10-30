@@ -3,9 +3,12 @@ import {Enum} from "../type/Enum";
 import {Color} from "../samples/models/Color";
 import {Any} from "../type/Any";
 import * as sinon from 'sinon';
+import {SinonStub} from 'sinon';
 import {jsonObject} from "../decorators/jsonObject";
 import {jsonProperty} from "../decorators/jsonProperty";
 import {JsonConverterDeserializer} from "./JsonConverterDeserializer";
+import {DeserializeContext} from "./DeserializeContext";
+import {JsonValidators} from "../mapping/JsonValidators";
 
 describe('JsonConverterDeserializer', () => {
 
@@ -31,14 +34,28 @@ describe('JsonConverterDeserializer', () => {
         //     chai.expect(processDeserialize.calledOnce).to.be.true;
         // });
 
-        it('should deserialize', () => {
+        describe('without context', () => {
+            it('should deserialize', () => {
+                const processDeserialize = sandbox.stub(converter, 'processDeserialize').withArgs('Steve', String)
+                    .returns('Steve');
 
-            const processDeserialize = sandbox.stub(converter, 'processDeserialize').withArgs('Steve', String)
-                .returns('Steve');
+                const result = converter.deserialize('Steve', String);
+                chai.expect(result).equal('Steve');
+                chai.expect(processDeserialize.calledOnce).to.be.true;
+                chai.expect(processDeserialize.calledWith('Steve', String, undefined)).to.be.ok;
+            });
+        });
+        describe('with context', () => {
+            it('should deserialize', () => {
+                const context: DeserializeContext = {object: new Date(), groups: []};
+                const processDeserialize = sandbox.stub(converter, 'processDeserialize').withArgs('Steve', String, context)
+                    .returns('Steve');
 
-            const result = converter.deserialize('Steve', String);
-            chai.expect(result).equal('Steve');
-            chai.expect(processDeserialize.calledOnce).to.be.true;
+                const result = converter.deserialize('Steve', String, context);
+                chai.expect(result).equal('Steve');
+                chai.expect(processDeserialize.calledOnce).to.be.true;
+                chai.expect(processDeserialize.calledWith('Steve', String, context)).to.be.ok;
+            });
         });
     });
 
@@ -139,12 +156,12 @@ describe('JsonConverterDeserializer', () => {
 
         it('should serialize', () => {
             const json = ['abc'];
-            const serialize = sandbox.stub(converter, 'processDeserialize').withArgs('abc', String)
+            const deserialize = sandbox.stub(converter, 'processDeserialize').withArgs('abc', String)
                 .returns('abd');
 
             const result = converter.processDeserializeArray(json, String);
             chai.expect(result).deep.equal(['abd']);
-            chai.expect(serialize.calledOnce).to.be.true;
+            chai.expect(deserialize.calledOnce).to.be.true;
         });
 
         // it('should throw error E30 when an exception occured', () => {
@@ -188,10 +205,33 @@ describe('JsonConverterDeserializer', () => {
      */
     describe('processDeserializeObject', () => {
 
+        @jsonObject({
+            defaultDeserializationGroups: ['Characters'], defaultGroups: ['Characters']
+        })
+        class Characters {
+            @jsonProperty('id', Number, {groups: ['Characters', 'id', 'all']})
+            public id: number;
+
+            @jsonProperty('name', String, {groups: ['Characters', 'all']})
+            public name: string;
+        }
+
         @jsonObject()
         class Actor {
             @jsonProperty('name', String)
             public _name: string;
+
+            @jsonProperty('specificPropForEmptyGroup', String, {groups: []})
+            public _specificPropForEmptyGroup: string;
+
+            @jsonProperty('specificPropForGroup', String, {groups: ['group1']})
+            public _specificPropForGroup: string;
+
+            @jsonProperty('specificPropForMultipleGroup', String, {groups: ['group1', 'group2']})
+            public _specificPropForMultipleGroup: string;
+
+            @jsonProperty('characters', Characters, {groups: ['group1'], subgroups: [{conditions: ['group1'], groups: ['id']}]})
+            public characters: Characters;
 
             constructor(name: string) {
                 this._name = name;
@@ -199,7 +239,13 @@ describe('JsonConverterDeserializer', () => {
         }
 
         const actorJson = {
-            name: 'Steve'
+            name: 'Steve',
+            specificPropForEmptyGroup: 'specificPropForEmptyGroup',
+            specificPropForGroup: 'specificPropForGroup',
+            specificPropForMultipleGroup: 'specificPropForMultipleGroup',
+            characters: {
+                id: 1
+            }
         };
 
         // it('should throw error E09 when type mapping is missing', () => {
@@ -226,6 +272,112 @@ describe('JsonConverterDeserializer', () => {
             const result = converter.processDeserializeObject<Actor>(actorJson, Actor);
             chai.expect(result).instanceOf(Actor);
             chai.expect(result._name).equal('Steve1');
+        });
+
+        describe('with empty groups on prop', () => {
+            it('should deserialize the prop', () => {
+                const deserialize = sandbox.stub(converter, 'processDeserialize').withArgs('specificPropForEmptyGroup', String)
+                    .returns('specificPropForEmptyGroup1');
+
+                const result = converter.processDeserializeObject<Actor>(actorJson, Actor);
+                chai.expect(result).instanceOf(Actor);
+                chai.expect(result._specificPropForEmptyGroup).equal('specificPropForEmptyGroup1');
+            });
+        });
+
+
+        it('should deserialize for the correct subgroup', () => {
+            const result = converter.processDeserializeObject<Actor>(actorJson, Actor);
+            chai.expect(result).instanceOf(Actor);
+            chai.expect(result.characters.id).equal(1);
+            chai.expect(result.characters.name).to.be.undefined;
+        });
+
+        describe('with one group on prop', () => {
+            let deserialize: SinonStub;
+            beforeEach(() => {
+                deserialize = sandbox.stub(converter, 'processDeserialize').withArgs('specificPropForGroup', String)
+                    .returns('specificPropForGroup1');
+            });
+
+            it('should deserialize the prop with the right context group', () => {
+                const context: DeserializeContext = {groups: ['group1']};
+                const result = converter.processDeserializeObject<Actor>(actorJson, Actor, context);
+                chai.expect(result).instanceOf(Actor);
+                chai.expect(result._specificPropForGroup).equal('specificPropForGroup1');
+            });
+
+            it('should deserialize the prop with an empty context group', () => {
+                const context: DeserializeContext = {groups: []};
+                const result = converter.processDeserializeObject<Actor>(actorJson, Actor, context);
+                chai.expect(result).instanceOf(Actor);
+                chai.expect(result._specificPropForGroup).to.equal('specificPropForGroup1');
+            });
+
+            it('should deserialize the prop with no context group', () => {
+                const context: DeserializeContext = {};
+                const result = converter.processDeserializeObject<Actor>(actorJson, Actor, context);
+                chai.expect(result).instanceOf(Actor);
+                chai.expect(result._specificPropForGroup).equal('specificPropForGroup1');
+            });
+
+            it('should no deserialize the prop with the wrong context group', () => {
+                const context: DeserializeContext = {groups: ['group2']};
+                const result = converter.processDeserializeObject<Actor>(actorJson, Actor, context);
+                chai.expect(result).instanceOf(Actor);
+                chai.expect(result._specificPropForGroup).to.be.undefined;
+            });
+        });
+
+
+        describe('with multiple groups on prop', () => {
+            let deserialize: SinonStub;
+            beforeEach(() => {
+                deserialize = sandbox.stub(converter, 'processDeserialize').withArgs('specificPropForMultipleGroup', String)
+                    .returns('specificPropForMultipleGroup1');
+            });
+
+            it('should deserialize the prop with one of the right context group (group1)', () => {
+                const context: DeserializeContext = {groups: ['group1']};
+                const result = converter.processDeserializeObject<Actor>(actorJson, Actor, context);
+                chai.expect(result).instanceOf(Actor);
+                chai.expect(result._specificPropForMultipleGroup).equal('specificPropForMultipleGroup1');
+            });
+
+            it('should deserialize the prop with one of the right context group (group2)', () => {
+                const context: DeserializeContext = {groups: ['group2']};
+                const result = converter.processDeserializeObject<Actor>(actorJson, Actor, context);
+                chai.expect(result).instanceOf(Actor);
+                chai.expect(result._specificPropForMultipleGroup).equal('specificPropForMultipleGroup1');
+            });
+
+            it('should deserialize the prop with all of the right context group (group1, group2)', () => {
+                const context: DeserializeContext = {groups: ['group1', 'group2']};
+                const result = converter.processDeserializeObject<Actor>(actorJson, Actor, context);
+                chai.expect(result).instanceOf(Actor);
+                chai.expect(result._specificPropForMultipleGroup).equal('specificPropForMultipleGroup1');
+            });
+
+            it('should deserialize the prop with an empty context group', () => {
+                const context: DeserializeContext = {groups: []};
+                const result = converter.processDeserializeObject<Actor>(actorJson, Actor, context);
+                chai.expect(result).instanceOf(Actor);
+                chai.expect(result._specificPropForMultipleGroup).to.equal('specificPropForMultipleGroup1');
+            });
+
+            it('should deserialize the prop with no context group', () => {
+                const context: DeserializeContext = {};
+                const result = converter.processDeserializeObject<Actor>(actorJson, Actor, context);
+                chai.expect(result).instanceOf(Actor);
+                chai.expect(result._specificPropForMultipleGroup).equal('specificPropForMultipleGroup1');
+            });
+
+            it('should no deserialize the prop with the wrong context group', () => {
+                const context: DeserializeContext = {groups: ['group3']};
+                const result = converter.processDeserializeObject<Actor>(actorJson, Actor, context);
+                chai.expect(result).instanceOf(Actor);
+                chai.expect(result._specificPropForMultipleGroup).to.be.undefined;
+            });
         });
     });
 });

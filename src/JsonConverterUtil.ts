@@ -1,19 +1,22 @@
 import {JsonConverterError} from "./JsonConverterError";
 import {JsonValidator} from "./mapping/JsonValidators";
 import {Any} from "./type/Any";
+import {DeserializeContext} from "./core/DeserializeContext";
+import {TypeMapping} from "./mapping/TypeMapping";
+import {DeserializeLevelContext} from "./core/DeserializeLevelContext";
 
 export type Instantiable<T> = { new(...args: any[]): T };
 
 export class JsonConverterUtil {
 
-    public static validate(obj: any, serializedName: string, validators: JsonValidator[]) {
+    public static validate(obj: any, serializedName: string, validators: JsonValidator[], groups?: string[], context?: DeserializeContext, levelContext?: DeserializeLevelContext, defaultDeserializationGroups?: string[]) {
 
         if (!validators) {
             return;
         }
 
         try {
-            validators.forEach(validator => validator(obj, serializedName));
+            validators.forEach(validator => validator(obj, serializedName, groups, context, levelContext, defaultDeserializationGroups));
         } catch (err) {
             throw new JsonConverterError('(E50) property invalid', err);
         }

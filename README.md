@@ -53,6 +53,21 @@ export class Passenger {
 | Enum(...)      |   |
 
 
+## Groups
+Filter some properties to deserialize depending groups.
+```
+@jsonObject()
+export class Passenger {
+
+    @jsonProperty('id', Number)
+    private _id: number;
+    
+    @jsonProperty('filteredData', String, ['group1', 'group2'])
+    public _filteredData?: string;
+}
+
+const deserialized = 
+```
 ## Polymorphism
 
 ```
@@ -112,18 +127,22 @@ export class PidConverter implements JsonCustomConverter<Pid> {
 
 Before deserialization, data can be validated.
 
-Validation is enabled by `@jsonProperty` third field :
+Validation is enabled by `@jsonProperty` 4th field :
 
 ```
 @jsonObject({discriminatorProperty: 'type'})
 export abstract class Vehicle {
 
-    @jsonProperty('type', String, [JsonValidators.required])
+    @jsonProperty('type', String, [], [JsonValidators.required])
     public _type: string;
 
-    @jsonProperty('id', Number, [JsonValidators.required])
+    @jsonProperty('id', Number, ['group1'], [JsonValidators.required])
     public _id: number;
 
+    @jsonProperty('name', String, [], [JsonValidators.required])
+    public _name: string;
+    
+    /** @deprecated signature */
     @jsonProperty('name', String, [JsonValidators.required])
     public _name: string;
 ...

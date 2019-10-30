@@ -89,6 +89,58 @@ export class JsonConverterMapper {
     }
 
     /**
+     * get default groups described in `jsonObject` options.
+     * It concat all groups from parent or far away
+     * @param {TypeMapping} typeMapping
+     * @returns {string[] | undefined}
+     */
+    public static getDefaultGroups(typeMapping: TypeMapping): string[] | undefined {
+
+        let defaultGroups: string[] | undefined;
+
+        let current = typeMapping;
+
+        do {
+
+            if (current.options && current.options.defaultGroups && current.options.defaultGroups.length) {
+                defaultGroups = defaultGroups ? defaultGroups : [];
+                const newOnes = current.options.defaultGroups.filter(v => !defaultGroups.some(dv => dv === v));
+                defaultGroups = defaultGroups.concat(newOnes)
+            }
+
+            current = current.parent;
+        } while (current);
+
+        return defaultGroups;
+    }
+
+    /**
+     * get default deserialization groups described in `jsonObject` options.
+     * It concat all groups from parent or far away
+     * @param {TypeMapping} typeMapping
+     * @returns {string[] | undefined}
+     */
+    public static getDefaultDeserializationGroups(typeMapping: TypeMapping): string[] | undefined {
+
+        let defaultDeserializationGroups: string[] | undefined;
+
+        let current = typeMapping;
+
+        do {
+
+            if (current.options && current.options.defaultDeserializationGroups && current.options.defaultDeserializationGroups.length) {
+                defaultDeserializationGroups = defaultDeserializationGroups ? defaultDeserializationGroups : [];
+                const newOnes = current.options.defaultDeserializationGroups.filter(v => !defaultDeserializationGroups.some(dv => dv === v));
+                defaultDeserializationGroups = defaultDeserializationGroups.concat(newOnes)
+            }
+
+            current = current.parent;
+        } while (current);
+
+        return defaultDeserializationGroups;
+    }
+
+    /**
      * Get all properties for type mapping
      * @param {TypeMapping} typeMapping
      * @returns {PropertyMapping[]}

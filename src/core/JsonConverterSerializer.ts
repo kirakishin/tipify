@@ -5,6 +5,7 @@ import {JsonCustomConverter} from "../converter/JsonCustomConverter";
 import {JsonConverterError} from "../JsonConverterError";
 import {JsonConverterMapper} from "../mapping/JsonConverterMapper";
 import {Any} from "../type/Any";
+import {SerializeContext} from "./SerializeContext";
 
 export class JsonConverterSerializer {
 
@@ -12,12 +13,13 @@ export class JsonConverterSerializer {
      * Serialize
      * @param {T} obj
      * @param type
+     * @param context
      * @returns {any}
      */
-    public serialize<T>(obj: T, type?: any): any {
+    public serialize<T>(obj: T, context: SerializeContext, type?: any): any {
 
         try {
-            return this.processSerialize(obj, type);
+            return this.processSerialize(obj, context, type);
         } catch (err) {
             const errorMessage = '(E00) cannot serialize object :\n'
                 + JSON.stringify(obj, null, 2);
@@ -28,10 +30,11 @@ export class JsonConverterSerializer {
     /**
      * Process serialize
      * @param obj
+     * @param context
      * @param type
      * @returns {any}
      */
-    public processSerialize<T>(obj: T, type?: any): any {
+    public processSerialize<T>(obj: T, context: SerializeContext, type?: any): any {
 
         // when obj is null or undefined, return null or undefined
         if (JsonConverterUtil.isNullOrUndefined(obj)) {
@@ -50,7 +53,7 @@ export class JsonConverterSerializer {
                         + '   -  class does not extends JsonCustomConverter';
                     throw new JsonConverterError(errorMessage);
                 }
-                return converterInstance.serialize(obj);
+                return converterInstance.serialize(obj, context);
             }
 
             // when an enum is provided
@@ -74,12 +77,12 @@ export class JsonConverterSerializer {
                 const errorMessage = `(E02) Given type is not valid, it should be an array like [String]`;
                 throw new JsonConverterError(errorMessage);
             }
-            return this.processSerializeArray(obj, _type);
+            return this.processSerializeArray(obj, context, _type);
         }
 
         // when obj is an object, serialize as an obj
         if (obj === Object(obj)) {
-            return this.processSerializeObject(obj);
+            return this.processSerializeObject(obj, context);
         }
 
         // return obj, should match only cases [number, boolean, string]
@@ -100,13 +103,9 @@ export class JsonConverterSerializer {
 
         if (options.strategy === EnumStrategy.INDEX) {
             return obj;
-        }
-
-        else if (options.strategy === EnumStrategy.NAME) {
+        } else if (options.strategy === EnumStrategy.NAME) {
             return options.type[obj];
-        }
-
-        else {
+        } else {
             const errorMessage = `(E12) strategy for enum <${options.type.name}> is not defined`;
             throw new JsonConverterError(errorMessage);
         }
@@ -115,8 +114,9 @@ export class JsonConverterSerializer {
     /**
      * Serialize object
      * @param obj
+     * @param context
      */
-    public processSerializeObject(obj: any): any {
+    public processSerializeObject(obj: any, context: SerializeContext): any {
 
         const typeMapping = JsonConverterMapper.getMappingForType(obj.constructor);
         if (!typeMapping) {
@@ -126,16 +126,23 @@ export class JsonConverterSerializer {
         }
 
         const properties = JsonConverterMapper.getAllPropertiesForTypeMapping(typeMapping);
+        const defaultGroups = JsonConverterMapper.getDefaultGroups(typeMapping);
 
         const instance: any = {};
 
         // serialize each property
         properties.forEach(property => {
-            try {
-                instance[property.serializedName] = this.serialize(obj[property.name], property.type);
-            } catch (err) {
-                const errorMessage = `(E08) error serializing property <${property.name}>, type <${property.type.name}>`;
-                throw new JsonConverterError(errorMessage, err);
+            const groups = property.groups ? property.groups : defaultGroups;
+            // treat the property if the declared groups matches at least one of the context.
+            // if there is no context or groups to manage, treat it
+            if (!context || !context.groups || context.groups.length === 0 ||
+            !groups || groups.length === 0 || groups.some((g) => context.groups.some((cg) => g === cg))) {
+                try {
+                    instance[property.serializedName] = this.serialize(obj[property.name], context, property.type);
+                } catch (err) {
+                    const errorMessage = `(E08) error serializing property <${property.name}>, type <${property.type.name}>`;
+                    throw new JsonConverterError(errorMessage, err);
+                }
             }
         });
 
@@ -145,14 +152,15 @@ export class JsonConverterSerializer {
     /**
      * Serialize array
      * @param obj
+     * @param context
      * @param type
      */
-    public processSerializeArray(obj: any[], type?: any): any[] {
+    public processSerializeArray(obj: any[], context: SerializeContext, type?: any): any[] {
         const instance: any[] = [];
 
         obj.forEach((entry, index) => {
             try {
-                instance.push(this.serialize(entry, type));
+                instance.push(this.serialize(entry, context, type));
             } catch (err) {
                 const errorMessage = `(E20) error serializing index <${index}>, type <${type ? type.name : undefined}>`;
                 throw new JsonConverterError(errorMessage, err);

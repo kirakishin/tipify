@@ -5,3 +5,5 @@ export * from './mapping/api';
 export * from './type/api';
 export * from './JsonConverterUtil';
 export * from './JsonConverter';
+export * from './JsonDeserializeOptions';
+export * from './JsonSerializeOptions';
