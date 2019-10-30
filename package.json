@@ -7,8 +7,12 @@
   "scripts": {
     "test": "./node_modules/.bin/mocha --require ts-node/register --exit \"**/*.test.ts\"",
     "build": "rm -rf dist/* && node ./node_modules/.bin/webpack --config webpack.config.js",
-    "release-patch": "npm run test && npm run build && npm version patch && npm publish",
-    "release": "npm run test && npm run build && npm version minor && npm publish"
+    "release-patch": "npm run test && npm run build && npm version patch",
+    "test-build": "npm run test && npm run build",
+    "release": "npm run test-build && npm version minor",
+    "release-major": "npm run test-build && npm version major",
+    "release-premajor": "npm run test-build && npm version premajor",
+    "publish": "npm publish"
   },
   "repository": {
     "type": "git",
