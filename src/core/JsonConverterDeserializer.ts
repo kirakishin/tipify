@@ -200,7 +200,8 @@ export class JsonConverterDeserializer {
                         parent: obj
                     }, newLevelContext);
                 } else {
-                    instance[property.name] = `${property.serializedName} no exists computedContextGroups=${JSON.stringify(computedContextGroups)}, groups=${groups}, `;
+                    // debug :
+                    // instance[property.name] = `${property.serializedName} no exists computedContextGroups=${JSON.stringify(computedContextGroups)}, groups=${groups}, `;
                 }
             } catch (err) {
                 const errorMessage = `(E32) error deserializing property <${property.name}>, type <${property.type.name}>`;
