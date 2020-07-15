@@ -1,6 +1,6 @@
 {
   "name": "@kirakishin/tipify",
-  "version": "2.0.0-0",
+  "version": "2.0.0-1",
   "description": "",
   "main": "dist/tipify.bundle.js",
   "typings": "dist/tipify.d.ts",
