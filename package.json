@@ -12,6 +12,7 @@
     "release": "npm run test-build && npm version minor",
     "release-major": "npm run test-build && npm version major",
     "release-premajor": "npm run test-build && npm version premajor",
+    "release-prerelease": "npm run test-build && npm version prerelease",
     "publish": "npm publish"
   },
   "repository": {
